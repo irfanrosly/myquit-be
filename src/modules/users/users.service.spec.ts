@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { NotFoundException } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -42,5 +43,16 @@ describe('UsersService', () => {
       data: { name: 'New Name' },
       select: expect.any(Object),
     });
+  });
+
+  it('findById throws NotFoundException when user not found', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+    await expect(service.findById('999')).rejects.toThrow(NotFoundException);
+  });
+
+  it('update throws NotFoundException on Prisma P2025', async () => {
+    const p2025 = Object.assign(new Error('Record not found'), { code: 'P2025' });
+    mockPrisma.user.update.mockRejectedValue(p2025);
+    await expect(service.update('999', { name: 'X' })).rejects.toThrow(NotFoundException);
   });
 });
