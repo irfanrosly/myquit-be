@@ -99,4 +99,36 @@ describe('SmokeLogService', () => {
       expect(date.getUTCSeconds()).toBe(0);
     });
   });
+
+  describe('getHistory', () => {
+    it('returns recent logs ordered by loggedAt desc, capped at days window', async () => {
+      const items = [
+        { id: 'a', loggedAt: new Date('2026-05-06T10:00Z'), count: 1 },
+        { id: 'b', loggedAt: new Date('2026-05-04T08:00Z'), count: 2 },
+      ];
+      mockPrisma.smokeLog.findMany.mockResolvedValue(items);
+
+      const result = await service.getHistory('user1', 14);
+
+      expect(mockPrisma.smokeLog.findMany).toHaveBeenCalledWith({
+        where: {
+          userId: 'user1',
+          loggedAt: { gte: expect.any(Date) },
+        },
+        orderBy: { loggedAt: 'desc' },
+        select: { id: true, loggedAt: true, count: true },
+      });
+      expect(result).toEqual({ items });
+    });
+
+    it('defaults to 14 days when no value provided', async () => {
+      mockPrisma.smokeLog.findMany.mockResolvedValue([]);
+      await service.getHistory('user1');
+      const call = mockPrisma.smokeLog.findMany.mock.calls[0][0];
+      const gte: Date = call.where.loggedAt.gte;
+      const diffDays = (Date.now() - gte.getTime()) / 86400000;
+      expect(diffDays).toBeGreaterThan(13);
+      expect(diffDays).toBeLessThan(15);
+    });
+  });
 });

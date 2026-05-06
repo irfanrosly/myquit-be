@@ -53,4 +53,14 @@ export class SmokeLogService {
       totalPoints: stats?.totalPoints ?? 0,
     };
   }
+
+  async getHistory(userId: string, days = 14) {
+    const since = new Date(Date.now() - days * 86400000);
+    const items = await this.prisma.smokeLog.findMany({
+      where: { userId, loggedAt: { gte: since } },
+      orderBy: { loggedAt: 'desc' },
+      select: { id: true, loggedAt: true, count: true },
+    });
+    return { items };
+  }
 }
