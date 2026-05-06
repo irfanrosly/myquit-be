@@ -21,6 +21,11 @@ const ALL_BADGES = [
   { key: 'logging_30', label: '30 Days Logged', category: 'logging', threshold: 30 },
 ];
 
+const STREAK_BADGE_KEYS = [
+  'streak_1', 'streak_3', 'streak_7', 'streak_14',
+  'streak_30', 'streak_60', 'streak_90', 'streak_180', 'streak_365',
+];
+
 @Injectable()
 export class GamificationService {
   constructor(private prisma: PrismaService) {}
@@ -102,5 +107,21 @@ export class GamificationService {
         ...(incrementCravings ? { cravingsManaged: { increment: 1 } } : {}),
       },
     });
+  }
+
+  async applySlipPenalty(userId: string): Promise<void> {
+    const stats = await this.prisma.userStats.findUnique({ where: { userId } });
+    const current = stats?.totalPoints ?? 0;
+    const next = Math.max(0, current - 2);
+
+    await this.prisma.$transaction([
+      this.prisma.userStats.update({
+        where: { userId },
+        data: { totalPoints: next },
+      }),
+      this.prisma.badge.deleteMany({
+        where: { userId, badgeKey: { in: STREAK_BADGE_KEYS } },
+      }),
+    ]);
   }
 }
