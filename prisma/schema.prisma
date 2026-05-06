@@ -1,11 +1,152 @@
-// This is a minimal Prisma schema for initial setup.
-// Full schema will be defined in Task BE-2.
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+}
+
+enum Gender {
+  male
+  female
+  other
+  prefer_not
+}
+
+enum Education {
+  secondary
+  diploma
+  bachelor
+  master
+  phd
+}
+
+enum TobaccoType {
+  cigarette
+  hand_rolled
+  vape
+  cigar
+  shisha
+  other
+}
+
+enum TTFC {
+  within_5
+  m6_30
+  m31_60
+  over_60
+}
+
+enum SmokeFreeRecord {
+  lt1day
+  d1_3
+  d4_7
+  w1_4
+  over_1m
+}
+
+enum ActivityType {
+  breathing
+  distraction
+}
+
+model User {
+  id             String     @id @default(uuid())
+  email          String     @unique
+  passwordHash   String
+  name           String
+  age            Int?
+  gender         Gender?
+  race           String?
+  education      Education?
+  occupation     String?
+  onboardingDone Boolean    @default(false)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  refreshTokens RefreshToken[]
+  quitPlan      QuitPlan?
+  moodLogs      MoodLog[]
+  activityLogs  ActivityLog[]
+  badges        Badge[]
+  stats         UserStats?
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model QuitPlan {
+  id               String           @id @default(uuid())
+  userId           String           @unique
+  quitDate         DateTime         @db.Date
+  yearsSmoked      Int?
+  tobaccoTypes     TobaccoType[]
+  cigarettesPd     Int?
+  vapeSessionsPd   Int?
+  ttfc             TTFC?
+  pricePerPack     Decimal?         @db.Decimal(8, 2)
+  cigsPerPack      Int              @default(20)
+  pastAttempts     Int              @default(0)
+  longestSmokeFree SmokeFreeRecord?
+  readiness        Int              @default(5)
+  confidence       Int              @default(5)
+  motivations      String[]
+  triggers         String[]
+  supports         String[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model MoodLog {
+  id         String   @id @default(uuid())
+  userId     String
+  mood       Int
+  craving    Int
+  note       String?
+  loggedDate DateTime @db.Date
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, loggedDate])
+}
+
+model ActivityLog {
+  id           String       @id @default(uuid())
+  userId       String
+  activityType ActivityType
+  pointsEarned Int
+  completedAt  DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Badge {
+  id       String   @id @default(uuid())
+  userId   String
+  badgeKey String
+  earnedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeKey])
+}
+
+model UserStats {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  totalPoints     Int      @default(0)
+  cravingsManaged Int      @default(0)
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
