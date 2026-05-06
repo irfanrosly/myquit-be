@@ -7,7 +7,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     return super.canActivate(context);
   }
 
-  handleRequest(err: any, user: any) {
+  handleRequest<T = unknown>(err: unknown, user: T): T {
     if (err || !user) throw new UnauthorizedException('Authentication required');
     return user;
   }

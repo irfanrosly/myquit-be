@@ -1,29 +1,41 @@
-import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
+import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { Response } from 'express';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(HttpExceptionFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 
-    const status =
-      exception instanceof HttpException
-        ? exception.getStatus()
-        : HttpStatus.INTERNAL_SERVER_ERROR;
+    if (exception instanceof HttpException) {
+      const status = exception.getStatus();
+      const exceptionResponse = exception.getResponse();
+      const message =
+        typeof exceptionResponse === 'object' &&
+        exceptionResponse !== null &&
+        'message' in exceptionResponse
+          ? (exceptionResponse as Record<string, unknown>).message
+          : exception.message;
 
-    const exceptionResponse = exception instanceof HttpException ? exception.getResponse() : null;
-    const message =
-      typeof exceptionResponse === 'object' && exceptionResponse !== null && 'message' in exceptionResponse
-        ? (exceptionResponse as Record<string, unknown>).message
-        : exception instanceof HttpException
-        ? exception.message
-        : 'Internal server error';
+      return response.status(status).json({
+        statusCode: status,
+        error: HttpStatus[status] ?? 'Error',
+        message,
+      });
+    }
 
-    response.status(status).json({
-      statusCode: status,
-      error: HttpStatus[status] ?? 'Error',
-      message,
+    // Non-HTTP exceptions: log internally, return generic message
+    this.logger.error(
+      exception instanceof Error ? exception.message : 'Unknown error',
+      exception instanceof Error ? exception.stack : undefined,
+    );
+
+    return response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+      error: 'Internal Server Error',
+      message: 'An unexpected error occurred',
     });
   }
 }
