@@ -4,8 +4,13 @@ import { map } from 'rxjs/operators';
 
 @Injectable()
 export class TransformInterceptor implements NestInterceptor {
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-    const statusCode = context.switchToHttp().getResponse().statusCode;
-    return next.handle().pipe(map((data) => ({ statusCode, data: data ?? null })));
+  intercept(context: ExecutionContext, next: CallHandler): Observable<{ statusCode: number; data: unknown }> {
+    const response = context.switchToHttp().getResponse();
+    return next.handle().pipe(
+      map((data) => ({
+        statusCode: response.statusCode,
+        data: data ?? null,
+      })),
+    );
   }
 }
