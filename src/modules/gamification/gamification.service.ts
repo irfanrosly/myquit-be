@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { computeCurrentStreak } from '../../common/utils/streak.util';
 
 const ALL_BADGES = [
   { key: 'streak_1', label: '1 Day Smoke-Free', category: 'streak', threshold: 1 },
@@ -66,12 +67,7 @@ export class GamificationService {
 
     const earnedKeys = new Set(earnedBadges.map((b) => b.badgeKey));
 
-    const now = Date.now();
-    const quit = new Date(plan.quitDate).getTime();
-    const daysSinceQuit = Math.max(0, Math.floor((now - quit) / 86400000));
-    const currentStreak = lastSlip
-      ? Math.max(0, Math.floor((now - new Date(lastSlip.loggedAt).getTime()) / 86400000))
-      : daysSinceQuit;
+    const currentStreak = computeCurrentStreak(plan.quitDate, lastSlip?.loggedAt ?? null);
 
     const pricePerPack = Number(plan.pricePerPack ?? 0);
     const dailyCost = (pricePerPack / (plan.cigsPerPack ?? 20)) * (plan.cigarettesPd ?? 0);
