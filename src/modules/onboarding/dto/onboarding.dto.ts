@@ -1,6 +1,6 @@
 import {
   IsDateString, IsInt, IsOptional, IsEnum, IsNumber, IsArray,
-  IsString, Min, Max,
+  IsString, Min, Max, ArrayMinSize,
 } from 'class-validator';
 import { TobaccoType, TTFC, SmokeFreeRecord } from '@prisma/client';
 
@@ -11,6 +11,7 @@ export class OnboardingDto {
   yearsSmoked?: number;
 
   @IsArray()
+  @ArrayMinSize(1)
   @IsEnum(TobaccoType, { each: true })
   tobaccoTypes: TobaccoType[];
 

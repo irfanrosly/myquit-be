@@ -53,4 +53,17 @@ describe('GamificationService', () => {
       expect.objectContaining({ data: expect.objectContaining({ totalPoints: { increment: 5 } }) }),
     );
   });
+
+  it('addPoints increments cravingsManaged when incrementCravings is true', async () => {
+    mockPrisma.userStats.update.mockResolvedValue({});
+    await service.addPoints('user1', 5, true);
+    expect(mockPrisma.userStats.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          totalPoints: { increment: 5 },
+          cravingsManaged: { increment: 1 },
+        }),
+      }),
+    );
+  });
 });

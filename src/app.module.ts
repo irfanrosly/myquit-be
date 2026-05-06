@@ -4,6 +4,10 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
+import { OnboardingModule } from './modules/onboarding/onboarding.module';
+import { ProgressModule } from './modules/progress/progress.module';
+import { GamificationModule } from './modules/gamification/gamification.module';
+import { CravingToolkitModule } from './modules/craving-toolkit/craving-toolkit.module';
 
 @Module({
   imports: [
@@ -12,7 +16,10 @@ import { UsersModule } from './modules/users/users.module';
     PrismaModule,
     AuthModule,
     UsersModule,
-    // Feature modules added in subsequent tasks
+    OnboardingModule,
+    ProgressModule,
+    GamificationModule,
+    CravingToolkitModule,
   ],
 })
 export class AppModule {}
