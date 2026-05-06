@@ -21,10 +21,7 @@ const ALL_BADGES = [
   { key: 'logging_30', label: '30 Days Logged', category: 'logging', threshold: 30 },
 ];
 
-const STREAK_BADGE_KEYS = [
-  'streak_1', 'streak_3', 'streak_7', 'streak_14',
-  'streak_30', 'streak_60', 'streak_90', 'streak_180', 'streak_365',
-];
+const STREAK_BADGE_KEYS = ALL_BADGES.filter((b) => b.category === 'streak').map((b) => b.key);
 
 @Injectable()
 export class GamificationService {
