@@ -75,6 +75,7 @@ export class GamificationService {
 
     const pricePerPack = Number(plan.pricePerPack ?? 0);
     const dailyCost = (pricePerPack / (plan.cigsPerPack ?? 20)) * (plan.cigarettesPd ?? 0);
+    // savings badges also key off currentStreak so they don't re-award mid-rebuild after a slip
     const moneySaved = currentStreak * dailyCost;
 
     const cravingsManaged = stats?.cravingsManaged ?? 0;
