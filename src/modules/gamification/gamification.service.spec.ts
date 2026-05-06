@@ -129,4 +129,50 @@ describe('GamificationService', () => {
       });
     });
   });
+
+  describe('checkAndAwardBadges streak category', () => {
+    it('uses time since last slip when slips exist', async () => {
+      const quitDate = new Date();
+      quitDate.setDate(quitDate.getDate() - 30);
+
+      const lastSlip = new Date();
+      lastSlip.setDate(lastSlip.getDate() - 2);
+
+      mockPrisma.quitPlan.findUnique.mockResolvedValue({
+        quitDate, cigarettesPd: 0, pricePerPack: 0, cigsPerPack: 20,
+      });
+      mockPrisma.userStats.findUnique.mockResolvedValue({ totalPoints: 0, cravingsManaged: 0 });
+      mockPrisma.badge.findMany.mockResolvedValue([]);
+      mockPrisma.moodLog.count.mockResolvedValue(0);
+      mockPrisma.smokeLog.findFirst.mockResolvedValue({ loggedAt: lastSlip });
+      mockPrisma.badge.createMany.mockResolvedValue({ count: 0 });
+
+      const result = await service.checkAndAwardBadges('user1');
+
+      // Days-since-quit would be 30 → would award streak_30. Streak from last slip
+      // is only ~2 days → should award streak_1 only.
+      expect(result).toContain('streak_1');
+      expect(result).not.toContain('streak_30');
+    });
+
+    it('falls back to days-since-quit when no slips exist', async () => {
+      const quitDate = new Date();
+      quitDate.setDate(quitDate.getDate() - 7);
+
+      mockPrisma.quitPlan.findUnique.mockResolvedValue({
+        quitDate, cigarettesPd: 0, pricePerPack: 0, cigsPerPack: 20,
+      });
+      mockPrisma.userStats.findUnique.mockResolvedValue({ totalPoints: 0, cravingsManaged: 0 });
+      mockPrisma.badge.findMany.mockResolvedValue([]);
+      mockPrisma.moodLog.count.mockResolvedValue(0);
+      mockPrisma.smokeLog.findFirst.mockResolvedValue(null);
+      mockPrisma.badge.createMany.mockResolvedValue({ count: 0 });
+
+      const result = await service.checkAndAwardBadges('user1');
+
+      expect(result).toContain('streak_1');
+      expect(result).toContain('streak_7');
+      expect(result).not.toContain('streak_14');
+    });
+  });
 });

@@ -50,26 +50,32 @@ export class GamificationService {
   }
 
   async checkAndAwardBadges(userId: string): Promise<string[]> {
-    const [plan, stats, earnedBadges, totalLogged] = await Promise.all([
+    const [plan, stats, earnedBadges, totalLogged, lastSlip] = await Promise.all([
       this.prisma.quitPlan.findUnique({ where: { userId } }),
       this.prisma.userStats.findUnique({ where: { userId } }),
       this.prisma.badge.findMany({ where: { userId }, select: { badgeKey: true } }),
       this.prisma.moodLog.count({ where: { userId } }),
+      this.prisma.smokeLog.findFirst({
+        where: { userId },
+        orderBy: { loggedAt: 'desc' },
+        select: { loggedAt: true },
+      }),
     ]);
 
     if (!plan) return [];
 
     const earnedKeys = new Set(earnedBadges.map((b) => b.badgeKey));
 
-    const now = new Date();
-    const quit = new Date(plan.quitDate);
-    quit.setHours(0, 0, 0, 0);
-    now.setHours(0, 0, 0, 0);
-    const days = Math.max(0, Math.floor((now.getTime() - quit.getTime()) / (1000 * 60 * 60 * 24)));
+    const now = Date.now();
+    const quit = new Date(plan.quitDate).getTime();
+    const daysSinceQuit = Math.max(0, Math.floor((now - quit) / 86400000));
+    const currentStreak = lastSlip
+      ? Math.max(0, Math.floor((now - new Date(lastSlip.loggedAt).getTime()) / 86400000))
+      : daysSinceQuit;
 
     const pricePerPack = Number(plan.pricePerPack ?? 0);
     const dailyCost = (pricePerPack / (plan.cigsPerPack ?? 20)) * (plan.cigarettesPd ?? 0);
-    const moneySaved = days * dailyCost;
+    const moneySaved = currentStreak * dailyCost;
 
     const cravingsManaged = stats?.cravingsManaged ?? 0;
     const newBadges: string[] = [];
@@ -78,7 +84,7 @@ export class GamificationService {
       if (earnedKeys.has(badge.key)) continue;
 
       let earned = false;
-      if (badge.category === 'streak') earned = days >= badge.threshold;
+      if (badge.category === 'streak') earned = currentStreak >= badge.threshold;
       if (badge.category === 'savings') earned = moneySaved >= badge.threshold;
       if (badge.category === 'cravings') earned = cravingsManaged >= badge.threshold;
       if (badge.category === 'logging') earned = totalLogged >= badge.threshold;
