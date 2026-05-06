@@ -63,4 +63,30 @@ export class SmokeLogService {
     });
     return { items };
   }
+
+  async getHeatmap(userId: string, from: string, to: string) {
+    const fromDate = new Date(from);
+    const toDate = new Date(to);
+
+    const rows = await this.prisma.smokeLog.groupBy({
+      by: ['loggedDate'],
+      where: {
+        userId,
+        loggedDate: { gte: fromDate, lte: toDate },
+      },
+      _sum: { count: true },
+      orderBy: { loggedDate: 'asc' },
+    });
+
+    const days = rows.map((r) => ({
+      date: toIsoDate(r.loggedDate),
+      count: r._sum.count ?? 0,
+    }));
+
+    return { days };
+  }
+}
+
+function toIsoDate(d: Date): string {
+  return new Date(d).toISOString().slice(0, 10);
 }

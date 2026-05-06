@@ -131,4 +131,31 @@ describe('SmokeLogService', () => {
       expect(diffDays).toBeLessThan(15);
     });
   });
+
+  describe('getHeatmap', () => {
+    it('returns one row per slip-day with summed counts', async () => {
+      mockPrisma.smokeLog.groupBy.mockResolvedValue([
+        { loggedDate: new Date('2026-05-04'), _sum: { count: 2 } },
+        { loggedDate: new Date('2026-05-06'), _sum: { count: 1 } },
+      ]);
+
+      const result = await service.getHeatmap('user1', '2026-05-01', '2026-05-07');
+
+      expect(mockPrisma.smokeLog.groupBy).toHaveBeenCalledWith({
+        by: ['loggedDate'],
+        where: {
+          userId: 'user1',
+          loggedDate: { gte: expect.any(Date), lte: expect.any(Date) },
+        },
+        _sum: { count: true },
+        orderBy: { loggedDate: 'asc' },
+      });
+      expect(result).toEqual({
+        days: [
+          { date: '2026-05-04', count: 2 },
+          { date: '2026-05-06', count: 1 },
+        ],
+      });
+    });
+  });
 });
