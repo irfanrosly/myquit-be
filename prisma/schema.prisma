@@ -1,0 +1,10 @@
+// This is a minimal Prisma schema for initial setup.
+// Full schema will be defined in Task BE-2.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
