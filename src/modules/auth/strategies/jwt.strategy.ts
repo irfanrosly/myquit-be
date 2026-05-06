@@ -12,7 +12,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (req: any) => req?.cookies?.access_token ?? null,
       ]),
-      secretOrKey: config.get<string>('JWT_SECRET')!,
+      secretOrKey: config.get<string>('JWT_SECRET') ?? (() => { throw new Error('JWT_SECRET not set'); })(),
       ignoreExpiration: false,
       passReqToCallback: false as const,
     });

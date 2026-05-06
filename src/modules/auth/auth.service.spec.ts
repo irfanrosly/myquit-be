@@ -101,6 +101,17 @@ describe('AuthService', () => {
       });
       await expect(service.refresh('rt1', 'token')).rejects.toThrow(UnauthorizedException);
     });
+
+    it('throws UnauthorizedException if hash does not match', async () => {
+      mockPrisma.refreshToken.findUnique.mockResolvedValue({
+        id: 'rt1',
+        tokenHash: 'not-a-bcrypt-hash',
+        expiresAt: new Date(Date.now() + 100000),
+        userId: 'u1',
+        user: { id: 'u1', email: 'a@b.com', name: 'A', onboardingDone: false },
+      });
+      await expect(service.refresh('rt1', 'wrongToken')).rejects.toThrow(UnauthorizedException);
+    });
   });
 
   describe('logout', () => {
