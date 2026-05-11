@@ -14,7 +14,8 @@ export class GamificationController {
   }
 
   @Get('badges')
-  getBadges(@CurrentUser() user: { id: string }) {
+  async getBadges(@CurrentUser() user: { id: string }) {
+    await this.gamification.checkAndAwardBadges(user.id);
     return this.gamification.getBadges(user.id);
   }
 }
