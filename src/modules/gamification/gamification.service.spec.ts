@@ -4,9 +4,11 @@ import { PrismaService } from '../../prisma/prisma.service';
 
 const mockPrisma = {
   userStats: { findUnique: jest.fn(), update: jest.fn() },
-  badge: { findMany: jest.fn(), createMany: jest.fn() },
+  badge: { findMany: jest.fn(), createMany: jest.fn(), deleteMany: jest.fn() },
   quitPlan: { findUnique: jest.fn() },
   moodLog: { count: jest.fn() },
+  smokeLog: { findFirst: jest.fn(), aggregate: jest.fn(), groupBy: jest.fn() },
+  $transaction: jest.fn(async (ops: unknown[]) => Promise.all(ops as Promise<unknown>[])),
 };
 
 describe('GamificationService', () => {
@@ -65,5 +67,112 @@ describe('GamificationService', () => {
         }),
       }),
     );
+  });
+
+  describe('applySlipPenalty', () => {
+    it('decrements totalPoints by 2 and clamps at zero', async () => {
+      mockPrisma.userStats.findUnique.mockResolvedValue({ totalPoints: 1 });
+      mockPrisma.userStats.update.mockResolvedValue({});
+      mockPrisma.badge.deleteMany.mockResolvedValue({ count: 0 });
+
+      await service.applySlipPenalty('user1');
+
+      expect(mockPrisma.userStats.update).toHaveBeenCalledWith({
+        where: { userId: 'user1' },
+        data: { totalPoints: 0 },
+      });
+    });
+
+    it('subtracts the full 2 when balance permits', async () => {
+      mockPrisma.userStats.findUnique.mockResolvedValue({ totalPoints: 30 });
+      mockPrisma.userStats.update.mockResolvedValue({});
+      mockPrisma.badge.deleteMany.mockResolvedValue({ count: 0 });
+
+      await service.applySlipPenalty('user1');
+
+      expect(mockPrisma.userStats.update).toHaveBeenCalledWith({
+        where: { userId: 'user1' },
+        data: { totalPoints: 28 },
+      });
+    });
+
+    it('deletes only streak-milestone badges', async () => {
+      mockPrisma.userStats.findUnique.mockResolvedValue({ totalPoints: 100 });
+      mockPrisma.userStats.update.mockResolvedValue({});
+      mockPrisma.badge.deleteMany.mockResolvedValue({ count: 3 });
+
+      await service.applySlipPenalty('user1');
+
+      expect(mockPrisma.badge.deleteMany).toHaveBeenCalledWith({
+        where: {
+          userId: 'user1',
+          badgeKey: {
+            in: [
+              'streak_1', 'streak_3', 'streak_7', 'streak_14',
+              'streak_30', 'streak_60', 'streak_90', 'streak_180', 'streak_365',
+            ],
+          },
+        },
+      });
+    });
+
+    it('handles missing UserStats row by treating points as zero', async () => {
+      mockPrisma.userStats.findUnique.mockResolvedValue(null);
+      mockPrisma.userStats.update.mockResolvedValue({});
+      mockPrisma.badge.deleteMany.mockResolvedValue({ count: 0 });
+
+      await service.applySlipPenalty('user1');
+
+      expect(mockPrisma.userStats.update).toHaveBeenCalledWith({
+        where: { userId: 'user1' },
+        data: { totalPoints: 0 },
+      });
+    });
+  });
+
+  describe('checkAndAwardBadges streak category', () => {
+    it('uses time since last slip when slips exist', async () => {
+      const quitDate = new Date();
+      quitDate.setDate(quitDate.getDate() - 30);
+
+      const lastSlip = new Date();
+      lastSlip.setDate(lastSlip.getDate() - 2);
+
+      mockPrisma.quitPlan.findUnique.mockResolvedValue({
+        quitDate, cigarettesPd: 0, pricePerPack: 0, cigsPerPack: 20,
+      });
+      mockPrisma.userStats.findUnique.mockResolvedValue({ totalPoints: 0, cravingsManaged: 0 });
+      mockPrisma.badge.findMany.mockResolvedValue([]);
+      mockPrisma.moodLog.count.mockResolvedValue(0);
+      mockPrisma.smokeLog.findFirst.mockResolvedValue({ loggedAt: lastSlip });
+      mockPrisma.badge.createMany.mockResolvedValue({ count: 0 });
+
+      const result = await service.checkAndAwardBadges('user1');
+
+      // Days-since-quit would be 30 → would award streak_30. Streak from last slip
+      // is only ~2 days → should award streak_1 only.
+      expect(result).toContain('streak_1');
+      expect(result).not.toContain('streak_30');
+    });
+
+    it('falls back to days-since-quit when no slips exist', async () => {
+      const quitDate = new Date();
+      quitDate.setDate(quitDate.getDate() - 7);
+
+      mockPrisma.quitPlan.findUnique.mockResolvedValue({
+        quitDate, cigarettesPd: 0, pricePerPack: 0, cigsPerPack: 20,
+      });
+      mockPrisma.userStats.findUnique.mockResolvedValue({ totalPoints: 0, cravingsManaged: 0 });
+      mockPrisma.badge.findMany.mockResolvedValue([]);
+      mockPrisma.moodLog.count.mockResolvedValue(0);
+      mockPrisma.smokeLog.findFirst.mockResolvedValue(null);
+      mockPrisma.badge.createMany.mockResolvedValue({ count: 0 });
+
+      const result = await service.checkAndAwardBadges('user1');
+
+      expect(result).toContain('streak_1');
+      expect(result).toContain('streak_7');
+      expect(result).not.toContain('streak_14');
+    });
   });
 });

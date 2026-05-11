@@ -28,7 +28,7 @@ export class AuthService {
     const tokens = await this.generateTokens(user.id, user.email);
     return {
       tokens,
-      user: { id: user.id, email: user.email, name: user.name, onboardingDone: user.onboardingDone },
+      user: { id: user.id, email: user.email, name: user.name, onboardingDone: user.onboardingDone, role: user.role },
     };
   }
 
@@ -42,7 +42,7 @@ export class AuthService {
     const tokens = await this.generateTokens(user.id, user.email);
     return {
       tokens,
-      user: { id: user.id, email: user.email, name: user.name, onboardingDone: user.onboardingDone },
+      user: { id: user.id, email: user.email, name: user.name, onboardingDone: user.onboardingDone, role: user.role },
     };
   }
 
@@ -69,6 +69,7 @@ export class AuthService {
         email: stored.user.email,
         name: stored.user.name,
         onboardingDone: stored.user.onboardingDone,
+        role: stored.user.role,
       },
     };
   }

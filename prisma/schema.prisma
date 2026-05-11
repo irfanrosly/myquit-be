@@ -50,11 +50,17 @@ enum ActivityType {
   distraction
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
 model User {
   id             String     @id @default(uuid())
   email          String     @unique
   passwordHash   String
   name           String
+  role           Role       @default(USER)
   age            Int?
   gender         Gender?
   race           String?
@@ -70,6 +76,7 @@ model User {
   activityLogs  ActivityLog[]
   badges        Badge[]
   stats         UserStats?
+  smokeLogs     SmokeLog[]
 }
 
 model RefreshToken {
@@ -118,6 +125,20 @@ model MoodLog {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, loggedDate])
+}
+
+model SmokeLog {
+  id         String   @id @default(uuid())
+  userId     String
+  count      Int      @default(1)
+  loggedAt   DateTime @default(now())
+  loggedDate DateTime @db.Date
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, loggedDate])
+  @@index([userId, loggedAt])
 }
 
 model ActivityLog {

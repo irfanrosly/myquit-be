@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { computeCurrentStreak } from '../../common/utils/streak.util';
 
 const ALL_BADGES = [
   { key: 'streak_1', label: '1 Day Smoke-Free', category: 'streak', threshold: 1 },
@@ -20,6 +21,8 @@ const ALL_BADGES = [
   { key: 'logging_7', label: '7 Days Logged', category: 'logging', threshold: 7 },
   { key: 'logging_30', label: '30 Days Logged', category: 'logging', threshold: 30 },
 ];
+
+const STREAK_BADGE_KEYS = ALL_BADGES.filter((b) => b.category === 'streak').map((b) => b.key);
 
 @Injectable()
 export class GamificationService {
@@ -48,26 +51,28 @@ export class GamificationService {
   }
 
   async checkAndAwardBadges(userId: string): Promise<string[]> {
-    const [plan, stats, earnedBadges, totalLogged] = await Promise.all([
+    const [plan, stats, earnedBadges, totalLogged, lastSlip] = await Promise.all([
       this.prisma.quitPlan.findUnique({ where: { userId } }),
       this.prisma.userStats.findUnique({ where: { userId } }),
       this.prisma.badge.findMany({ where: { userId }, select: { badgeKey: true } }),
       this.prisma.moodLog.count({ where: { userId } }),
+      this.prisma.smokeLog.findFirst({
+        where: { userId },
+        orderBy: { loggedAt: 'desc' },
+        select: { loggedAt: true },
+      }),
     ]);
 
     if (!plan) return [];
 
     const earnedKeys = new Set(earnedBadges.map((b) => b.badgeKey));
 
-    const now = new Date();
-    const quit = new Date(plan.quitDate);
-    quit.setHours(0, 0, 0, 0);
-    now.setHours(0, 0, 0, 0);
-    const days = Math.max(0, Math.floor((now.getTime() - quit.getTime()) / (1000 * 60 * 60 * 24)));
+    const currentStreak = computeCurrentStreak(plan.quitDate, lastSlip?.loggedAt ?? null);
 
     const pricePerPack = Number(plan.pricePerPack ?? 0);
     const dailyCost = (pricePerPack / (plan.cigsPerPack ?? 20)) * (plan.cigarettesPd ?? 0);
-    const moneySaved = days * dailyCost;
+    // savings badges also key off currentStreak so they don't re-award mid-rebuild after a slip
+    const moneySaved = currentStreak * dailyCost;
 
     const cravingsManaged = stats?.cravingsManaged ?? 0;
     const newBadges: string[] = [];
@@ -76,7 +81,7 @@ export class GamificationService {
       if (earnedKeys.has(badge.key)) continue;
 
       let earned = false;
-      if (badge.category === 'streak') earned = days >= badge.threshold;
+      if (badge.category === 'streak') earned = currentStreak >= badge.threshold;
       if (badge.category === 'savings') earned = moneySaved >= badge.threshold;
       if (badge.category === 'cravings') earned = cravingsManaged >= badge.threshold;
       if (badge.category === 'logging') earned = totalLogged >= badge.threshold;
@@ -102,5 +107,21 @@ export class GamificationService {
         ...(incrementCravings ? { cravingsManaged: { increment: 1 } } : {}),
       },
     });
+  }
+
+  async applySlipPenalty(userId: string): Promise<void> {
+    const stats = await this.prisma.userStats.findUnique({ where: { userId } });
+    const current = stats?.totalPoints ?? 0;
+    const next = Math.max(0, current - 2);
+
+    await this.prisma.$transaction([
+      this.prisma.userStats.update({
+        where: { userId },
+        data: { totalPoints: next },
+      }),
+      this.prisma.badge.deleteMany({
+        where: { userId, badgeKey: { in: STREAK_BADGE_KEYS } },
+      }),
+    ]);
   }
 }

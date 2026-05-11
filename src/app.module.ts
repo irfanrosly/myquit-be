@@ -8,6 +8,8 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { ProgressModule } from './modules/progress/progress.module';
 import { GamificationModule } from './modules/gamification/gamification.module';
 import { CravingToolkitModule } from './modules/craving-toolkit/craving-toolkit.module';
+import { SmokeLogModule } from './modules/smoke-log/smoke-log.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { CravingToolkitModule } from './modules/craving-toolkit/craving-toolkit.
     ProgressModule,
     GamificationModule,
     CravingToolkitModule,
+    SmokeLogModule,
+    AdminModule,
   ],
 })
 export class AppModule {}
